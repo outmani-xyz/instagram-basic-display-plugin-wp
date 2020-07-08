@@ -18,8 +18,8 @@ class InstagramApi
     function __construct($params, $app_id, $app_secret)
     {
         // save instagram code
-        $this->_getCode = $params['get_code'];
-        $this->_state = $params['state'];
+        $this->_getCode = !empty($params['get_code']) ? $params['get_code'] : '';
+        $this->_state = !empty($params['state']) ? $params['state'] : '';
         $this->_appId = $app_id;
         $this->_appSecret = $app_secret;
 
@@ -47,20 +47,20 @@ class InstagramApi
             'redirect_uri' => $this->callbackURL(),
             'scope' => 'user_profile,user_media',
             'response_type' => 'code',
-            'state' => $this->_state
+            'state' => !empty($this->_state) ? $this->_state : ''
         );
 
         // create url
         $this->authorizationUrl = $this->_apiBaseUrl . 'oauth/authorize?' . http_build_query($getVars);
     }
-    
+
     private function _setUserInstagramAccessToken($params)
     {
-        if ($params['access_token']) { // we have an access token
+        if (!empty($params['access_token'])) { // we have an access token
             $this->_userAccessToken = $params['access_token'];
             $this->hasUserAccessToken = true;
             $this->userId = $params['user_id'];
-        } elseif ($params['get_code']) { // try and get an access token
+        } elseif (!empty($params['get_code'])) { // try and get an access token
             $userAccessTokenResponse = $this->_getUserAccessToken();
             $this->_userAccessToken = $userAccessTokenResponse['access_token'];
             $this->hasUserAccessToken = true;
@@ -172,9 +172,10 @@ class InstagramApi
         $response = $this->makeApiCall($params);
         return $response;
     }
-    public function refresh_access_token(){
+    public function refresh_access_token()
+    {
         $params = array(
-            'endpoint_url' => $this->_graphBaseUrl. '/refresh_access_token',
+            'endpoint_url' => $this->_graphBaseUrl . '/refresh_access_token',
             'type' => 'GET',
             'url_params' => array(
                 'grant_type' => 'ig_refresh_token'
@@ -194,7 +195,7 @@ class InstagramApi
         if ('POST' == $params['type']) { // post request
             curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($params['url_params']));
             curl_setopt($ch, CURLOPT_POST, 1);
-        } elseif ('GET' == $params['type'] && !$params['url_params']['paging']) { // get request
+        } elseif ('GET' == $params['type'] && !empty($params['url_params']['paging'])) { // get request
             $params['url_params']['access_token'] = $this->_userAccessToken;
 
             //add params to endpoint
@@ -217,7 +218,7 @@ class InstagramApi
         if (isset($responseArray['error_type'])) {
             var_dump($responseArray);
             die();
-        } else {
+        }else {
             return $responseArray;
         }
     }
