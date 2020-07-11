@@ -4,8 +4,8 @@
  * Plugin Name: Instagram basic display
  * Plugin URI:        http://outmani.xyz
  * Description:       ...
- * Author:            outmani
- * Author URI:        http://outmani.xyz
+ * Author:            Donate
+ * Author URI:        https://www.patreon.com/outmani
  */
 require_once('instagram_api.php');
 define('INSTA_OPTION', 'instagram_app_setting');
@@ -17,6 +17,7 @@ add_action('init', function () {
         instagram_refresh_access_token();
         instagram_save();
     }
+    instagram_refresh_access_token_cron();
 });
 add_action('admin_menu', 'instagram_page_setting');
 
@@ -100,8 +101,9 @@ function instagram_callback()
         $option_data['expired'] = $expired;
         $option_data['user_id'] = $user_id;
         update_option(INSTA_OPTION, $option_data);
-        
-        wp_redirect(INSTA_PAGE_SETTING);exit;
+
+        wp_redirect(INSTA_PAGE_SETTING);
+        exit;
     }
 }
 function get_instagram_config($field)
@@ -113,7 +115,27 @@ function get_instagram_config($field)
     }
     return $val;
 }
-
+function instagram_refresh_access_token_cron()
+{
+    $expired = get_instagram_config('expired');
+    if (($expired + time() - 10 * 24 * 60 * 60) < (time())) {
+        $app_id = get_instagram_config('app_id');
+        $app_secret = get_instagram_config('app_secret');
+        $user_id = get_instagram_config('user_id');
+        $token = get_instagram_config('token');
+        $insta_api = new InstagramApi([
+            'access_token' => $token,
+            'user_id' => $user_id
+        ], $app_id, $app_secret);
+        if ($insta_api->refresh_access_token()) {
+            $option_data = get_option(INSTA_OPTION);
+            $option_data['token'] = $insta_api->getUserAccessToken();
+            $option_data['expired'] = $insta_api->getUserAccessTokenExpires() +  time();
+            $option_data['user_id'] = $user_id;
+            update_option(INSTA_OPTION, $option_data);
+        }
+    }
+}
 function instagram_refresh_access_token()
 {
 
@@ -134,7 +156,8 @@ function instagram_refresh_access_token()
             $option_data['user_id'] = $user_id;
             update_option(INSTA_OPTION, $option_data);
         }
-        wp_redirect(INSTA_PAGE_SETTING);exit;
+        wp_redirect(INSTA_PAGE_SETTING);
+        exit;
     }
 }
 function instagram_save()
@@ -146,8 +169,9 @@ function instagram_save()
         $insta_setting['app_id'] = $app_id;
         $insta_setting['app_secret'] = $app_secret;
         $n = update_option(INSTA_OPTION, $insta_setting);
-        
-        wp_redirect(INSTA_PAGE_SETTING);exit;
+
+        wp_redirect(INSTA_PAGE_SETTING);
+        exit;
     }
 }
 
@@ -169,9 +193,9 @@ function instagram_feed_callback($atts, $content)
     ], $app_id, $app_secret);
 
     $medias = $insta_api->getUserMedia();
-    if(empty($content)){
+    if (empty($content)) {
         $content = '
-        <a class="'.$class.'" href="{media_link}">
+        <a class="' . $class . '" href="{media_link}">
             <img src="{media_thumbnail}" />
         </a>
         ';
