@@ -1,5 +1,5 @@
 
-<a href="https://www.patreon.com/bePatron?u=38671402" data-patreon-widget-type="become-patron-button">Become a Patron!</a><script async src="https://c6.patreon.com/becomePatronButton.bundle.js"></script>
+<a href="https://www.patreon.com/bePatron?u=38671402" style='font-weight:bold;font-size:24px;'>Become a Patron!</a>
 # WP-Instagram-API
 Instagram Basic Display API plugin for Wordpress
 
