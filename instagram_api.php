@@ -183,7 +183,13 @@ class InstagramApi
         );
 
         $response = $this->makeApiCall($params);
-        return $response;
+
+        if (!empty($response['access_token']) && !empty($response['expires_in'])) {
+            $this->_userAccessToken = $response['access_token'];
+            $this->_userAccessTokenExpires = $response['expires_in'];
+            return true;
+        }
+        return;
     }
 
     private function makeApiCall($params)
@@ -195,9 +201,8 @@ class InstagramApi
         if ('POST' == $params['type']) { // post request
             curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($params['url_params']));
             curl_setopt($ch, CURLOPT_POST, 1);
-        } elseif ('GET' == $params['type'] && !empty($params['url_params']['paging'])) { // get request
+        } elseif ('GET' == $params['type']) { // get request
             $params['url_params']['access_token'] = $this->_userAccessToken;
-
             //add params to endpoint
             $endpoint .= '?' . http_build_query($params['url_params']);
         }
@@ -214,11 +219,10 @@ class InstagramApi
         curl_close($ch);
 
         $responseArray = json_decode($response, true);
-
         if (isset($responseArray['error_type'])) {
             var_dump($responseArray);
             die();
-        }else {
+        } else {
             return $responseArray;
         }
     }

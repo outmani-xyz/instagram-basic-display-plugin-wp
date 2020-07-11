@@ -10,7 +10,7 @@
 require_once('instagram_api.php');
 define('INSTA_OPTION', 'instagram_app_setting');
 define('INSTA_SAVE', 'instagram_save');
-define('INSTA_PAGE_SETTING', '/options-general.php?page=instagram-setting');
+define('INSTA_PAGE_SETTING', admin_url('/options-general.php?page=instagram-setting'));
 add_action('init', function () {
     if (is_user_logged_in()) {
         instagram_callback();
@@ -33,7 +33,8 @@ function instagram_setting_admin_ui()
     $user_id = get_instagram_config('user_id');
     $params = [
         'access_token' => !empty($token) ? $token : '',
-        'state'=>'instagram_callback'
+        'state' => 'instagram_callback',
+        'user_id' => $user_id
     ];
     $insta_api = new InstagramApi($params, $app_id, $app_secret);
 
@@ -50,22 +51,22 @@ function instagram_setting_admin_ui()
 
             <a target="_blank" href="<?php echo $insta_api->authorizationUrl ?>">Nouveau</a>
             <?php if ($token) : ?>
-                <a href="<?php echo get_home_url() . '?action=instagram_refresh_access_token&site=' . $site ?>">Refrech</a>
+                <a href="<?php echo get_home_url() . '?action=instagram_refresh_access_token' ?>">Refrech</a>
             <?php endif; ?>
         </div>
         <div class="input-group">
 
-        <div class="form-group">
+            <div class="form-group">
                 <label>User ID </label>
                 <input type="text" readonly name="token" value="<?php echo $user_id ?>">
             </div>
             <div class="form-group">
                 <label>Token </label>
-                <input type="text" readonly name="token" value="<?php echo substr($token,0,10).(!empty($token)?'*****':'') ?>">
+                <input type="text" readonly name="token" value="<?php echo substr($token, 0, 10) . (!empty($token) ? '*****' : '') ?>">
             </div>
             <div class="form-group">
                 <label>Token Experation date</label>
-                <input type="text" readonly name="expired" value="<?php echo $expired ?>">
+                <input type="text" readonly name="expired" value="<?php echo date('d/m/Y H:i:s', $expired) ?>">
             </div>
             <form method="post">
                 <div class="form-group">
@@ -96,10 +97,11 @@ function instagram_callback()
         $expired = $insta_api->getUserAccessTokenExpires() + time();
         $option_data = get_option(INSTA_OPTION);
         $option_data['token'] = $token;
-        $option_data['expired'] = ($expired + time());
+        $option_data['expired'] = $expired;
         $option_data['user_id'] = $user_id;
-        update_option(INSTA_OPTION,$option_data);
-        wp_redirect(admin_url(INSTA_PAGE_SETTING));
+        update_option(INSTA_OPTION, $option_data);
+        
+        wp_redirect(INSTA_PAGE_SETTING);exit;
     }
 }
 function get_instagram_config($field)
@@ -115,31 +117,24 @@ function get_instagram_config($field)
 function instagram_refresh_access_token()
 {
 
-    if (!empty($_GET['action']) && $_GET['state'] == 'instagram_refresh_access_token') {
+    if (!empty($_GET['action']) && $_GET['action'] == 'instagram_refresh_access_token') {
 
         $app_id = get_instagram_config('app_id');
         $app_secret = get_instagram_config('app_secret');
-
-        $option_data = get_option(INSTA_OPTION);
-        if (!empty($option_data['user_id'])) {
-            $user_id = $option_data['user_id'];
-        }
-        if (!empty($option_data['token'])) {
-            $access_token = $option_data['token'];
-        }
+        $user_id = get_instagram_config('user_id');
+        $token = get_instagram_config('token');
         $insta_api = new InstagramApi([
-            'access_token' => $access_token,
+            'access_token' => $token,
             'user_id' => $user_id
         ], $app_id, $app_secret);
-
-        $data = $insta_api->refresh_access_token();
-        if (!empty($data['access_token']) && !empty($data['expires_in'])) {
-            $option_data['token'] = $data['access_token'];
-            $option_data['expired'] = ($data['expires_in'] + time());
+        if ($insta_api->refresh_access_token()) {
+            $option_data = get_option(INSTA_OPTION);
+            $option_data['token'] = $insta_api->getUserAccessToken();
+            $option_data['expired'] = $insta_api->getUserAccessTokenExpires() +  time();
             $option_data['user_id'] = $user_id;
             update_option(INSTA_OPTION, $option_data);
-            wp_redirect(admin_url(INSTA_PAGE_SETTING));
         }
+        wp_redirect(INSTA_PAGE_SETTING);exit;
     }
 }
 function instagram_save()
@@ -151,6 +146,48 @@ function instagram_save()
         $insta_setting['app_id'] = $app_id;
         $insta_setting['app_secret'] = $app_secret;
         $n = update_option(INSTA_OPTION, $insta_setting);
-        wp_redirect(admin_url(INSTA_PAGE_SETTING));
+        
+        wp_redirect(INSTA_PAGE_SETTING);exit;
     }
+}
+
+
+add_shortcode('instagram_feed', 'instagram_feed_callback');
+
+function instagram_feed_callback($atts, $content)
+{
+    $nbr_media = (isset($atts['number']) ? $atts['number'] : 4);
+    $class = (isset($atts['class']) ? $atts['cless'] : 'insta_feed');
+
+    $app_id = get_instagram_config('app_id');
+    $app_secret = get_instagram_config('app_secret');
+    $user_id = get_instagram_config('user_id');
+    $token = get_instagram_config('token');
+    $insta_api = new InstagramApi([
+        'access_token' => $token,
+        'user_id' => $user_id
+    ], $app_id, $app_secret);
+
+    $medias = $insta_api->getUserMedia();
+    if(empty($content)){
+        $content = '
+        <a class="'.$class.'" href="{media_link}">
+            <img src="{media_thumbnail}" />
+        </a>
+        ';
+    }
+    if (!empty($medias['data']) && !empty($content)) {
+        $all_content = '';
+        $medias = array_slice($medias['data'], 0, $nbr_media);
+        foreach ($medias as $media) {
+            $media_src = $media['media_url'];
+            $media_url = $media['permalink'];
+            if ($media['media_type'] == 'VIDEO') {
+                $media_src = $media['thumbnail_url'];
+            }
+            $all_content .= str_replace(array('{media_thumbnail}', '{media_link}'), array($media_src, $media_url), $content);
+        }
+        $content = $all_content;
+    }
+    return $content;
 }
