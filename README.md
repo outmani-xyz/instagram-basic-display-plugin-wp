@@ -1,6 +1,8 @@
-
+# Become a Patron! 
 <a href="https://www.patreon.com/bePatron?u=38671402" style='font-weight:bold;font-size:24px;'>Become a Patron!</a>
+# Support via Paypal
 <a href="https://paypal.me/OUTMANI" style='font-weight:bold;font-size:24px;'>Paypal</a>
+
 # WP-Instagram-API
 Instagram Basic Display API plugin for Wordpress
 
